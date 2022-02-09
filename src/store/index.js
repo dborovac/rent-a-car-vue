@@ -32,11 +32,22 @@ export default new Vuex.Store({
         },
 
         setCarList(state, cars) {
-            state.cars = cars;
+            cars.forEach(car => {
+                const index = state.cars.findIndex(object => object.id === car.id);
+                if (index === -1) {
+                    car.reviews = [];
+                    state.cars.push(car);
+                }
+            });
         },
 
         addCar(state, car) {
             state.cars.push(car);
+        },
+
+        addReviewForCar(state, msg) {
+            const car = state.cars.filter(object => object.id === msg.carId)[0];
+            car.reviews.push({ rating: msg.rating, comment: msg.comment, userEmail: msg.userEmail });
         },
 
         setReservationList(state, reservations) {
@@ -54,7 +65,7 @@ export default new Vuex.Store({
 
     actions: {
         register({ commit }, obj) {
-            fetch('http://127.0.0.1:65533/auth/register', {
+            fetch('https://rent-a-car-auth.herokuapp.com/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(obj)
@@ -67,7 +78,7 @@ export default new Vuex.Store({
         },
 
         login({ commit }, obj) {
-            fetch('http://127.0.0.1:65533/auth/login', {
+            fetch('https://rent-a-car-auth.herokuapp.com/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(obj)
@@ -80,7 +91,7 @@ export default new Vuex.Store({
         },
 
         getAllCars({ commit }) {
-            fetch('http://127.0.0.1:65535/api/cars')
+            fetch('https://rent-a-car-rest.herokuapp.com/api/cars')
                 .then(handleErrors).then(res => res.json())
                 .then(data => commit('setCarList', data.data));
         },
@@ -91,30 +102,29 @@ export default new Vuex.Store({
                 if (car) {
                     resolve(car);
                 } else {
-                    fetch(`http://127.0.0.1:65535/api/cars/${id}`)
+                    fetch(`https://rent-a-car-rest.herokuapp.com/api/cars/${id}`)
                         .then(handleErrors).then(res => res.json())
                         .then(data => {
                             commit('addCar', data);
                             resolve(data);
-                        })
-                        .catch(error => reject(error));
+                        }).catch(error => reject(error));
                 }
             })
         },
 
         getCarDetails({ state }, id) {
             return new Promise((resolve, reject) => {
-                const car = state.cars.filter(car => car.id == id)[0];
-                fetch(`http://127.0.0.1:65535/api/cardetails/${car.detailsId}`, {
+                const car = state.cars.filter(car => car.id === id)[0];
+                fetch(`https://rent-a-car-rest.herokuapp.com/api/cardetails/${car.detailsId}`, {
                     headers: {'Authorization': 'Bearer ' + state.token}
                 }).then(handleErrors).then(res => res.json())
                 .then(data => resolve(data))
-                .catch(error => reject(error))
+                .catch(error => reject(error));
             })
         },
 
         getReservationsForUser({ commit, state }) {
-            fetch('http://127.0.0.1:65535/api/reservations', {
+            fetch('https://rent-a-car-rest.herokuapp.com/api/reservations', {
                 headers: {'Authorization': 'Bearer ' + state.token}
             }).then(handleErrors).then(res => res.json())
             .then(data => {
@@ -124,7 +134,7 @@ export default new Vuex.Store({
         },
 
         postReservation({ commit, state }, reservation) {
-            fetch('http://127.0.0.1:65535/api/reservations', {
+            fetch('https://rent-a-car-rest.herokuapp.com/api/reservations', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.token},
                 body: JSON.stringify({startDate: reservation.startDate, endDate: reservation.endDate, carId: reservation.carId, userId: reservation.userId})
@@ -133,7 +143,7 @@ export default new Vuex.Store({
         },
 
         cancelReservation({ commit, state }, id) {
-            fetch(`http://127.0.0.1:65535/api/reservations/${id}`, {
+            fetch(`https://rent-a-car-rest.herokuapp.com/api/reservations/${id}`, {
                 method: 'DELETE',
                 headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.token},
                 body: JSON.stringify({userId: state.userId})
@@ -141,12 +151,16 @@ export default new Vuex.Store({
         },
 
         updateUserInfo({ commit, state }, user) {
-            fetch(`http://127.0.0.1:65535/api/users/${state.userId}`, {
+            fetch(`https://rent-a-car-rest.herokuapp.com/api/users/${state.userId}`, {
                 method: 'PUT',
                 headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.token},
                 body: JSON.stringify({email: user.email, password: user.password, userId: state.userId, role: 'Client'})
             }).then(handleErrors).then(res => res.json())
-            .then(data => commit('setUserEmail', data.email))
+            .then(data => commit('setUserEmail', data.email));
+        },
+
+        socket_review({ commit }, msg) {
+            commit('addReviewForCar', msg);
         }
     }
 })
